@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AquaWatch | IoT Water Quality Monitor</title>
+<style>
+:root{--bg:#06121f;--glass:rgba(255,255,255,.06);--line:rgba(255,255,255,.12);--text:#e8f3ff;--mute:#8fb0cc;
+      --ok:#2ee59d;--warn:#ffb020;--crit:#ff4d5e;--acc:#38bdf8;--c:var(--ok)}
+body.s1{--c:var(--warn)} body.s2{--c:var(--crit)}
+*{box-sizing:border-box;margin:0}
+body{font-family:system-ui,"Segoe UI",Roboto,sans-serif;color:var(--text);min-height:100vh;
+  background:radial-gradient(1100px 600px at 10% -10%,#0d3b66 0,transparent 60%),radial-gradient(900px 500px at 100% 0,#0b5563 0,transparent 55%),var(--bg);background-attachment:fixed}
+body.s2{animation:alarm 1.2s infinite}
+@keyframes alarm{0%,100%{box-shadow:inset 0 0 90px rgba(255,77,94,.28)}50%{box-shadow:inset 0 0 170px rgba(255,77,94,.55)}}
+.wrap{max-width:1200px;margin:0 auto;padding:18px 20px 40px}
+header{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.brand{display:flex;gap:12px;align-items:center}
+.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#38bdf8,#2ee59d);display:grid;place-items:center;font-size:24px;box-shadow:0 6px 24px rgba(56,189,248,.4)}
+h1{font-size:1.5rem;letter-spacing:.02em} .sub{color:var(--mute);font-size:.82rem}
+.chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{font-size:.78rem;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--glass);color:var(--mute)}
+.chip.on{color:var(--ok);border-color:var(--ok)}
+button{font:inherit;font-size:.78rem;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--glass);color:var(--text);cursor:pointer}
+button:hover,button.act{border-color:var(--acc);color:var(--acc)}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:18px;padding:16px 18px;backdrop-filter:blur(10px)}
+.lbl{font-size:.75rem;color:var(--mute);text-transform:uppercase;letter-spacing:.07em}
+/* pipeline */
+.pipe{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.pipe .n{text-align:center;padding:8px 16px;border-radius:14px;border:1px solid var(--line);background:var(--glass);font-size:1.3rem;transition:.3s}
+.pipe .n small{display:block;font-size:.68rem;color:var(--mute);margin-top:2px}
+.pipe i{width:46px;height:3px;border-radius:3px;background:linear-gradient(90deg,transparent,var(--acc),transparent);background-size:200%;animation:flow 1.4s linear infinite}
+@keyframes flow{to{background-position:-200%}}
+.pipe.flash .n{border-color:var(--acc);box-shadow:0 0 18px rgba(56,189,248,.55);transform:translateY(-2px)}
+/* layout */
+.hero{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.params{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:14px}
+.lower{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+@media(max-width:900px){.hero,.lower{grid-template-columns:1fr}}
+/* WQI ring */
+.ringbox{position:relative;width:230px;height:230px;margin:6px auto}
+.ringbox svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ringbox circle{fill:none;stroke-width:14;stroke-linecap:round}
+#ring{stroke:var(--c);stroke-dasharray:0 502.65;transition:stroke-dasharray 1s ease,stroke .5s;filter:drop-shadow(0 0 8px var(--c))}
+.ringtxt{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.ringtxt b{font-size:3.4rem;line-height:1}.ringtxt span{color:var(--c);font-weight:700;letter-spacing:.06em;margin-top:6px;font-size:.95rem}
+/* tank */
+.tank{position:relative;width:130px;margin:6px auto}
+.tank svg{width:100%;display:block}
+.tank .lv{position:absolute;inset:0;display:grid;place-content:center;text-align:center;text-shadow:0 2px 8px #000}
+.tank .lv b{font-size:1.9rem}
+#water{transition:transform 1.2s ease}
+.w1{animation:wave 3.5s linear infinite}.w2{animation:wave 5.5s linear infinite reverse;opacity:.55}
+@keyframes wave{to{transform:translateX(-120px)}}
+/* status */
+.row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.row:last-child{border:0}.row span:first-child{color:var(--mute)}
+#alertTxt{color:var(--c);font-weight:700}
+/* params */
+.val{margin:8px 0 12px}.val b{font-size:2.3rem}.val span{color:var(--mute);margin-left:6px}
+.meter{position:relative;height:9px;border-radius:9px;background:rgba(255,255,255,.1)}
+.meter div{height:100%;border-radius:9px;width:0;transition:width .8s,background .4s}
+.meter em{position:absolute;top:-4px;width:2px;height:17px;background:#fff;opacity:.7}
+.foot{display:flex;justify-content:space-between;margin-top:10px;font-size:.75rem;color:var(--mute)}
+.tag{padding:2px 9px;border-radius:99px;font-weight:700;font-size:.7rem}
+.tag.good{background:rgba(46,229,157,.15);color:var(--ok)}.tag.bad{background:rgba(255,77,94,.18);color:var(--crit)}
+/* chart + log */
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.chartbox{height:270px}
+#log{list-style:none;padding:0;max-height:300px;overflow:auto;font-size:.82rem}
+#log li{padding:8px 0;border-bottom:1px solid var(--line);display:flex;gap:8px}
+#log time{color:var(--mute);min-width:62px}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.crit{color:var(--crit)}
+footer{text-align:center;color:var(--mute);font-size:.75rem;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="logo">💧</div>
+      <div><h1>AquaWatch</h1><div class="sub">IoT Water Quality Monitoring &middot; ESP32 + MQTT</div></div></div>
+    <div class="chips">
+      <span id="conn" class="chip">connecting…</span>
+      <span id="clock" class="chip">--:--:--</span>
+      <button id="demoBtn">Demo mode</button><button id="csvBtn">Export CSV</button><button id="clearBtn">Clear</button>
+    </div>
+  </header>
+
+  <div class="pipe" id="pipe">
+    <div class="n">📡<small>Sensors</small></div><i></i><div class="n">🧠<small>ESP32</small></div><i></i>
+    <div class="n">☁️<small>MQTT Broker</small></div><i></i><div class="n">📊<small>Dashboard</small></div>
+  </div>
+
+  <section class="hero">
+    <div class="card" style="text-align:center">
+      <div class="lbl">Water Quality Index</div>
+      <div class="ringbox">
+        <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" stroke="rgba(255,255,255,.1)"/><circle id="ring" cx="100" cy="100" r="80"/></svg>
+        <div class="ringtxt"><b id="wqi">--</b><span id="wqiTxt">WAITING</span></div>
+      </div>
+    </div>
+    <div class="card" style="text-align:center">
+      <div class="lbl">Tank level</div>
+      <div class="tank">
+        <svg viewBox="0 0 120 200">
+          <defs><clipPath id="cp"><rect x="8" y="6" width="104" height="188" rx="18"/></clipPath>
+          <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0b5fa5"/></linearGradient></defs>
+          <rect x="8" y="6" width="104" height="188" rx="18" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.25)" stroke-width="2"/>
+          <g clip-path="url(#cp)"><g id="water" style="transform:translateY(190px)">
+            <path class="w2" fill="#7dd3fc" d="M0 6q15-12 30 0t30 0 30 0 30 0 30 0 30 0 30 0 30 0V400H0Z"/>
+            <path class="w1" fill="url(#g)" d="M0 10q15-12 30 0t30 0 30 0 30 0 30 0 30 0 30 0 30 0V400H0Z"/>
+          </g></g>
+        </svg>
+        <div class="lv"><b id="lvTxt">--</b><small>cm</small></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="lbl">System status</div>
+      <div class="row"><span>Alert level</span><span id="alertTxt">--</span></div>
+      <div class="row"><span>Device</span><span id="dev">No data</span></div>
+      <div class="row"><span>Last update</span><span id="age">--</span></div>
+      <div class="row"><span>Samples</span><span id="cnt">0</span></div>
+      <div class="row"><span>Float switch</span><span id="flt">--</span></div>
+    </div>
+  </section>
+
+  <section class="params" id="params"></section>
+
+  <section class="lower">
+    <div class="card">
+      <div class="tabs" id="tabs"></div>
+      <div class="chartbox"><canvas id="chart"></canvas></div>
+    </div>
+    <div class="card"><div class="lbl" style="margin-bottom:6px">Event log</div><ul id="log"></ul></div>
+  </section>
+  <footer>Live over MQTT WebSocket &middot; history stored in this browser &middot; limits mirror the ESP32 firmware</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+// ===== SETTINGS: TOPIC must match MQTT_TOPIC in the ESP32 code =====
+const CFG={broker:"wss://broker.hivemq.com:8884/mqtt",topic:"vit-wqm-2026/data",tank:20,
+  lim:{tds:500,turb:50,temp:35},max:{tds:1000,turb:100,temp:50}};
+const $=id=>document.getElementById(id);
+const P=[{k:"temp",n:"Temperature",u:"°C",i:"🌡️",d:1,col:"#ff8a4c"},
+         {k:"tds",n:"Dissolved solids (TDS)",u:"ppm",i:"🧂",d:0,col:"#38bdf8"},
+         {k:"turb",n:"Turbidity",u:"NTU",i:"🌫️",d:0,col:"#d6a85f"}];
+const TABS=[...P,{k:"level",n:"Water level",u:"cm",col:"#2ee59d"}];
+
+$("params").innerHTML=P.map(p=>`<div class="card"><div class="lbl">${p.i} ${p.n}</div>
+ <div class="val"><b id="v-${p.k}">–</b><span>${p.u}</span></div>
+ <div class="meter"><div id="m-${p.k}"></div><em style="left:${CFG.lim[p.k]/CFG.max[p.k]*100}%"></em></div>
+ <div class="foot"><span id="s-${p.k}" class="tag good">–</span><span>limit ${CFG.lim[p.k]} ${p.u}</span></div></div>`).join("");
+
+// ---------- state ----------
+let hist=[],cur="tds",last=0,prev=null,demo=null;
+try{hist=JSON.parse(localStorage.getItem("wqm-pro")||"[]")}catch(e){}
+
+// ---------- chart ----------
+Chart.defaults.color="#8fb0cc";Chart.defaults.borderColor="rgba(255,255,255,.08)";
+const chart=new Chart($("chart"),{type:"line",
+  data:{labels:[],datasets:[{data:[],borderWidth:2.5,tension:.35,pointRadius:0,fill:true}]},
+  options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:7}}}}});
+$("tabs").innerHTML=TABS.map(t=>`<button data-k="${t.k}">${t.n}</button>`).join("");
+$("tabs").onclick=e=>{if(e.target.dataset.k){cur=e.target.dataset.k;draw()}};
+function draw(){
+  const t=TABS.find(x=>x.k===cur);
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("act",b.dataset.k===cur));
+  const ds=chart.data.datasets[0];
+  chart.data.labels=hist.map(h=>new Date(h.t).toLocaleTimeString());
+  ds.data=hist.map(h=>h[cur]);ds.borderColor=t.col;ds.backgroundColor=t.col+"26";
+  chart.options.plugins.title={display:true,text:t.n+" ("+t.u+")",color:"#e8f3ff"};
+  chart.update();
+}
+
+// ---------- helpers ----------
+function countTo(el,to,dec){
+  const from=parseFloat(el.dataset.v||0);el.dataset.v=to;const t0=performance.now();
+  (function f(t){const k=Math.min((t-t0)/600,1);el.textContent=(from+(to-from)*k).toFixed(dec);if(k<1)requestAnimationFrame(f)})(t0);
+}
+function wqiOf(d){
+  const s=.4*Math.min(d.tds/1000,1)+.4*Math.min(d.turb/100,1)+.2*Math.min(Math.max(d.temp-25,0)/15,1);
+  return Math.max(0,Math.round(100*(1-s))-(d.float?10:0));
+}
+function log(msg,cls){
+  const li=document.createElement("li");
+  li.innerHTML=`<time>${new Date().toLocaleTimeString()}</time><span class="${cls||""}">${msg}</span>`;
+  $("log").prepend(li);while($("log").children.length>30)$("log").lastChild.remove();
+}
+
+// ---------- render a reading ----------
+const NAMES=["NORMAL","WARNING","CRITICAL"];
+function show(d){
+  const a=Math.min(2,d.alert|0);document.body.className="s"+a;
+  P.forEach(p=>{
+    const v=+d[p.k],over=v>CFG.lim[p.k];
+    countTo($("v-"+p.k),v,p.d);
+    const m=$("m-"+p.k);m.style.width=Math.min(v/CFG.max[p.k],1)*100+"%";m.style.background=over?"var(--crit)":"var(--ok)";
+    const t=$("s-"+p.k);t.textContent=over?"ABOVE LIMIT":"SAFE";t.className="tag "+(over?"bad":"good");
+  });
+  const w=wqiOf(d);countTo($("wqi"),w,0);
+  $("ring").style.strokeDasharray=(w/100*502.65)+" 502.65";
+  $("wqiTxt").textContent=w>=80?"EXCELLENT":w>=60?"GOOD":w>=40?"POOR":"CRITICAL";
+  const lv=d.level<0?0:Math.min(d.level/CFG.tank,1);
+  $("water").style.transform=`translateY(${186-lv*172}px)`;
+  $("lvTxt").textContent=d.level<0?"n/a":(+d.level).toFixed(1);
+  $("alertTxt").textContent=NAMES[a];
+  $("flt").textContent=d.float?"HIGH WATER":"OK";
+  $("dev").textContent="Live";$("cnt").textContent=hist.length;
+  const pp=$("pipe");pp.classList.add("flash");setTimeout(()=>pp.classList.remove("flash"),700);
+  // events
+  if(prev===null)log("First reading received","ok");
+  else{
+    if(a!==prev.alert)log(`Alert level: ${NAMES[prev.alert|0]} → ${NAMES[a]}`,a===2?"crit":a===1?"warn":"ok");
+    if(d.float&&!prev.float)log("Float switch: high water detected","crit");
+    if(!d.float&&prev.float)log("Float switch cleared","ok");
+  }
+  prev=d;last=Date.now();
+}
+function onReading(d){
+  hist.push({t:Date.now(),temp:d.temp,tds:d.tds,turb:d.turb,level:d.level<0?null:d.level,float:d.float,alert:d.alert});
+  if(hist.length>300)hist.shift();
+  try{localStorage.setItem("wqm-pro",JSON.stringify(hist))}catch(e){}
+  show(d);draw();
+}
+
+// ---------- MQTT ----------
+const client=mqtt.connect(CFG.broker,{reconnectPeriod:3000,clientId:"wqm-web-"+Math.random().toString(16).slice(2,8)});
+client.on("connect",()=>{$("conn").textContent="MQTT connected";$("conn").classList.add("on");client.subscribe(CFG.topic);log("Connected to MQTT broker","ok")});
+client.on("close",()=>{$("conn").textContent="MQTT offline";$("conn").classList.remove("on")});
+client.on("message",(t,m)=>{try{onReading(JSON.parse(m.toString()))}catch(e){console.warn("Bad payload",e)}});
+
+// ---------- buttons, clock, idle check ----------
+$("demoBtn").onclick=()=>{
+  if(demo){clearInterval(demo);demo=null;$("demoBtn").textContent="Demo mode";return}
+  $("demoBtn").textContent="Stop demo";let n=0;
+  demo=setInterval(()=>{
+    n++;const polluted=Math.floor(n/12)%2===1;
+    const tds=polluted?560+Math.random()*250:150+Math.random()*120;
+    const turb=polluted?60+Math.random()*30:5+Math.random()*20;
+    const temp=27+Math.random()*3+(polluted?6:0),level=8+Math.sin(n/5)*5;
+    const bad=(tds>500)+(turb>50)+(temp>35);
+    onReading({temp,tds,turb,level,float:0,alert:bad===0?0:bad===1?1:2});
+  },1500);
+};
+$("csvBtn").onclick=()=>{
+  const rows=["time,temp_C,tds_ppm,turbidity_NTU,level_cm,float,alert"].concat(
+    hist.map(h=>[new Date(h.t).toISOString(),h.temp,h.tds,h.turb,h.level??"",h.float,h.alert].join(",")));
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.join("\n")],{type:"text/csv"}));
+  a.download="water_quality_readings.csv";a.click();
+};
+$("clearBtn").onclick=()=>{hist=[];try{localStorage.removeItem("wqm-pro")}catch(e){}$("log").innerHTML="";draw()};
+setInterval(()=>{
+  $("clock").textContent=new Date().toLocaleTimeString();
+  if(last){const s=Math.round((Date.now()-last)/1000);$("age").textContent=s+" s ago";
+    if(s>20)$("dev").textContent="Idle / offline"}
+},1000);
+
+draw();
+if(hist.length){const l=hist[hist.length-1];show({...l,level:l.level??-1});log("Restored saved history","warn")}
+</script>
+</body>
+</html>
